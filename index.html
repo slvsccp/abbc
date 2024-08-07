@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redirect Example</title>
+  <style>
+    #warning {
+      display: none;
+      background-color: yellow;
+      color: red;
+      padding: 10px;
+      border: 1px solid red;
+      text-align: center;
+      position: fixed;
+      top: 0;
+      width: 100%;
+    }
+    .button {
+      display: none;
+      margin-top: 20px;
+      padding: 10px 20px;
+      background-color: blue;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="warning">
+    Você está utilizando o navegador embutido do Facebook ou Instagram. Para uma melhor experiência, por favor, abra este link no seu navegador padrão.
+    <button id="cta-button" class="button">Open Link in Chrome</button>
+  </div>
+
+  <script>
+    function detectFacebookInstagramBrowser() {
+      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+      if (userAgent.includes("FBAN") || userAgent.includes("FBAV") || userAgent.includes("Instagram")) {
+        document.getElementById("warning").style.display = "block";
+        document.getElementById("cta-button").style.display = "inline-block";
+        setTimeout(function () {
+          document.getElementById("cta-button").click();
+        }, 1000);
+      }
+    }
+
+    function supportsIntentScheme() {
+      const a = document.createElement("a");
+      a.href = "intent://foo#Intent;scheme=https;package=com.android.chrome;end";
+      return a.protocol === "intent:";
+    }
+
+    function cleanUrl(url) {
+      return url.replace(/^(https:\/\/|http:\/\/|https\/\/|http\/\/|http:\/\/https\/\/)/, '');
+    }
+
+    function openInChrome(url) {
+      const strippedUrl = cleanUrl(url);
+      const intentUrl = `intent://${strippedUrl}#Intent;package=com.android.chrome;end`;
+      window.location.href = intentUrl;
+    }
+
+    let fallbackToDirectLink = false;
+
+    window.addEventListener(
+      "beforeload",
+      function (event) {
+        if (!supportsIntentScheme()) {
+          fallbackToDirectLink = true;
+        }
+      },
+      true
+    );
+
+    window.addEventListener("load", function () {
+      detectFacebookInstagramBrowser();
+      document
+        .getElementById("cta-button")
+        .addEventListener("click", function () {
+          const currentUrl = window.location.href;
+          if (!fallbackToDirectLink) {
+            openInChrome(currentUrl);
+          } else {
+            window.location.href = currentUrl;
+          }
+        });
+    });
+  </script>
+  <script>
+    (function tryOpenBrowser() {
+      const targetUrl = cleanUrl(window.location.href);
+      const targetUrlEncoded = encodeURIComponent(targetUrl);
+
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+      const iosBrowsers = [
+        `safari://${targetUrl}`,
+        `googlechrome://${targetUrl}`,
+        `firefox://${targetUrl}`,
+        `opera://${targetUrl}`,
+        `microsoft-edge://${targetUrl}`,
+      ];
+
+      const androidBrowsers = [
+        `intent://${targetUrlEncoded}#Intent;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(
+          targetUrl
+        )};end`,
+        `intent://${targetUrlEncoded}#Intent;package=org.mozilla.firefox;S.browser_fallback_url=${encodeURIComponent(
+          targetUrl
+        )};end`,
+        `intent://${targetUrlEncoded}#Intent;package=com.opera.browser;S.browser_fallback_url=${encodeURIComponent(
+          targetUrl
+        )};end`,
+        `intent://${targetUrlEncoded}#Intent;package=com.microsoft.emmx;S.browser_fallback_url=${encodeURIComponent(
+          targetUrl
+        )};end`,
+      ];
+
+      function tryOpen(url) {
+        var ifc = document.createElement("div");
+        ifc.innerHTML = `<iframe src='${url}' style='width:0;height:0;border:0; border:none;visibility: hidden;'></iframe>`;
+        document.body.appendChild(ifc);
+      }
+
+      function openInPreferredBrowser(browsers, index) {
+        if (index < browsers.length) {
+          const scheme = browsers[index];
+          tryOpen(scheme);
+
+          setTimeout(() => openInPreferredBrowser(browsers, index + 1), 1000);
+        } else if (isAndroid) {
+          window.location.href = targetUrl;
+        }
+      }
+
+      const browsers = isIOS ? iosBrowsers : isAndroid ? androidBrowsers : [];
+
+      if (document.body && browsers.length > 0) {
+        openInPreferredBrowser(browsers, 0);
+      } else {
+        window.requestAnimationFrame(tryOpenBrowser);
+      }
+    })();
+  </script>
+</body>
+</html>
